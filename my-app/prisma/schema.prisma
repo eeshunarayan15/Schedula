@@ -1,14 +1,125 @@
 generator client {
   provider = "prisma-client-js"
+
 }
 
 datasource db {
   provider = "postgresql"
+
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  FACEBOOK
+  GITHUB
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  email    String @unique
-  password String
-  mobile   String
+  id               String   @id @default(cuid())
+  email            String?  @unique
+  emailNormalized  String?  @unique
+  emailVerified    Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  accounts         Account[]
+  refreshTokens    RefreshToken[]
+  roles            UserRole[]
+  // business profiles
+  patient          Patient?
+  doctor           Doctor?
+}
+
+model Account {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider          AuthProvider
+  providerAccountId String
+
+  // passwordHash is only used for LOCAL provider if you want to keep password here
+  passwordHash      String? 
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         Int?
+
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model RefreshToken {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jti           String   @unique
+  tokenHash     String
+  revoked       Boolean  @default(false)
+  replacedBy    String?  // jti of the token that replaced this one
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime?
+  expiresAt     DateTime
+}
+
+model Role {
+  id    String @id @default(cuid())
+  name  String @unique
+
+  users UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model Patient {
+  id        String @id @default(cuid())
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String?
+  phone     String?
+  dob       DateTime?
+  gender    String?
+  address   String?
+}
+
+model Doctor {
+  id            String @id @default(cuid())
+  userId        String @unique
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String?
+  phone         String?
+  email         String?
+  departmentId  String?
+  specialization String?
+  experienceYears Int?
+}
+
+model Department {
+  id   String @id @default(cuid())
+  name String
+  code String?
+  description String?
+}
+
+model Appointment {
+  id               String   @id @default(cuid())
+  patientId        String
+  doctorId         String
+  appointmentDate  DateTime
+  status           String
+  reason           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
